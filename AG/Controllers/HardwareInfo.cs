@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Claims;
@@ -31,7 +32,7 @@ namespace AG.Controllers
         [Authorize(AuthenticationSchemes ="Bearer",Policy = "embeddedAdmin")]
         public async Task<IActionResult> get()
         {
-            var r = _context.hardwareInfo.ToList();
+            var r =await _context.hardwareInfo.ToListAsync();
             var result =mapper.Map<List<HardwareInfoDTO>>(r);
             return Ok(result);
         }

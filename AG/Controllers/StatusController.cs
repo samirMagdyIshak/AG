@@ -118,10 +118,10 @@ namespace AG.Controllers
         }
         [HttpGet("All")]
         [Authorize(AuthenticationSchemes = "Bearer", Policy = "aiAdmin")]
-        public async Task<IActionResult> getAll()
+        public async Task<IActionResult> GetAll()
         {
             var r = _context.statuses;
-            var result=r.ToList();
+            var result=await r.ToListAsync();
             return Ok(result);
         }
 

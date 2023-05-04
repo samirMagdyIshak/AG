@@ -13,6 +13,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Authorization;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using notification.models;
+using notification.services;
 
 namespace AG.Controllers
 {
@@ -23,14 +25,16 @@ namespace AG.Controllers
     {
         private readonly IMapper mapper;
         private readonly AppContext _context;
-        private readonly UserManager<IdentityUser>userManager;
+        private readonly UserManager<AppUser>userManager;
+        private readonly INotificationService _notificationService;
 
-        public HasDiseasesController(AppContext context,IMapper mapper, UserManager<IdentityUser> userManager)
+        public HasDiseasesController(AppContext context,IMapper mapper, UserManager<AppUser> userManager, INotificationService notificationService)
 
         {
             _context = context;
             this.mapper = mapper;
             this.userManager = userManager;
+            _notificationService = notificationService;
         }
 
         // GET: api/HasDiseases
@@ -103,11 +107,23 @@ namespace AG.Controllers
         {
             HasDisease hDB=new HasDisease(); 
             hDB.photoId = hasDisease.photoId;
-            hDB.DiseasesID = hasDisease.DiseasesID; 
-
+            hDB.DiseasesID = hasDisease.DiseasesID;
             _context.hasDiseases.Add(hDB);
             await _context.SaveChangesAsync();
+            var photo = _context.photos.Include(p=>p.User).SingleOrDefault(p=>p.Id==hDB.photoId);
+            var user=photo.User;
 
+            var notificationModel = new NotificationModel();
+            var token = _context.DeviceTokens.FirstOrDefault(t=>t.UserId==user.Id);
+            notificationModel.DeviceId = token.Token;
+            notificationModel.Title = "found Disease ";
+            notificationModel.IsAndroiodDevice = true;
+            var diseases = await _context.Diseases.FindAsync(hasDisease.DiseasesID);
+            notificationModel.Body = diseases.Name;
+            var result = await _notificationService.SendNotification(notificationModel,photo.photo);
+            notificationModel.IsAndroiodDevice = true;
+            //return Ok(result);
+ 
             return CreatedAtAction("GetHasDisease", new { id = hasDisease.Id }, hasDisease);
         }
 

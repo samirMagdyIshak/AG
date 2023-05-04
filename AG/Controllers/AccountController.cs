@@ -17,6 +17,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using AG.Migrations;
 using Microsoft.AspNetCore.Authorization;
 using AG.Models;
+using Microsoft.EntityFrameworkCore;
 
 namespace AG.Controllers
 {
@@ -50,14 +51,29 @@ namespace AG.Controllers
         [HttpPost("Create")]
         public async Task<IActionResult> create(UserSignUp userCredentials)
         {
-            var user=new AppUser { Email=userCredentials.Email,UserName=userCredentials.UserName};
-            var result = await userManager.CreateAsync(user,userCredentials.Password);
-            if (result.Succeeded)
+            
+            var user=new AppUser { Email=userCredentials.Email
+                                  ,UserName=userCredentials.UserName
+                                  ,FirstName=userCredentials.Firstname
+                                  ,LastName=userCredentials.Lastname
+            };
+            var x = userManager.FindByEmailAsync(userCredentials.Email);
+            if (x.Result == null)
             {
-                return Ok(await BuildToken(new UserSigninDTO { Email=userCredentials.Email,Password=userCredentials.Password}));
+                var result = await userManager.CreateAsync(user, userCredentials.Password);
+
+                if (result.Succeeded)
+                {
+                    return Ok(await BuildToken(new UserSigninDTO { Email = userCredentials.Email
+                                                                  , Password = userCredentials.Password
+                                                                  ,FirstName = userCredentials.Firstname
+                                                                  ,LastName = userCredentials.Lastname
+                    
+                }));
+                }
+                else return BadRequest(result.Errors);
             }
-            else return BadRequest(result.Errors);
-           
+            else return BadRequest("this email is duplicate");
 
         }
 
@@ -65,9 +81,13 @@ namespace AG.Controllers
         public async Task<ActionResult<AuthenticationResponse>> login(UserSigninDTO userSignin)
         {
             var user = await userManager.FindByEmailAsync(userSignin.Email);
+            if(user == null) return BadRequest("Incorrect login");
             var result = await SignInManager.PasswordSignInAsync(user, userSignin.Password, userSignin.RememberMe, false);
-            if (result.Succeeded)
+            if (result.Succeeded) {
+                userSignin.FirstName = user.FirstName;
+                userSignin.LastName=user.LastName;
                 return  Ok(await BuildToken(userSignin));
+                 }
             return BadRequest("Incorrect login");
         }
 
@@ -101,6 +121,8 @@ namespace AG.Controllers
             return new AuthenticationResponse()
             {
                 Username = user.UserName,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
                 status = true,
                 Email=userCredentials.Email,
                 Token = new JwtSecurityTokenHandler().WriteToken(token),
@@ -108,7 +130,27 @@ namespace AG.Controllers
             };
         }
 
-      
+        [HttpPost("registerDeviceToken")]
+        public async Task<IActionResult> RegisterDeviceToken(string deviceToken)
+        {
+            // Get the user ID from the current user's identity.
+            var email = HttpContext.User.FindFirst(ClaimTypes.Email)?.Value;
+            var user = await userManager.FindByEmailAsync(email);
 
+
+          //  Store the device token in the database.
+            var deviceTokenModel = new deviceTokenModel
+            {
+                UserId = user.Id,
+                Token = deviceToken
+            };
+            appContext.DeviceTokens.Add(deviceTokenModel);
+            await appContext.SaveChangesAsync();
+            return Ok();
+        }
     }
+
+
+
+
 }
